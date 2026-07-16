@@ -48,3 +48,9 @@ Swagger UI is available at `http://localhost:3000/docs/`.
 ## Notes
 
 The API stores tasks only in memory, so data resets when the server restarts.
+
+## Optional extras
+
+I added query filtering and search on `GET /tasks`, a `GET /stats` endpoint, and `POST /reset` to restore the seeded tasks.
+
+On restart, all created tasks disappear because they only live in memory. That is the intended behavior for this stage and the reason the next week introduces persistence.

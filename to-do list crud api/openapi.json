@@ -36,10 +36,34 @@
     "/tasks": {
       "get": {
         "summary": "List tasks",
-        "description": "Returns all tasks currently stored in memory.",
+        "description": "Returns all tasks currently stored in memory, with optional done and search filtering.",
+        "parameters": [
+          {
+            "name": "done",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            },
+            "description": "Filter tasks by completion state."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter tasks by title text."
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of tasks"
+          },
+          "400": {
+            "description": "Invalid query parameter"
           }
         }
       },
@@ -158,6 +182,28 @@
           },
           "404": {
             "description": "Task not found"
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Get task stats",
+        "description": "Returns total, done, and open task counts.",
+        "responses": {
+          "200": {
+            "description": "Task statistics"
+          }
+        }
+      }
+    },
+    "/reset": {
+      "post": {
+        "summary": "Reset seeded tasks",
+        "description": "Restores the original three example tasks in memory.",
+        "responses": {
+          "200": {
+            "description": "Tasks reset"
           }
         }
       }
