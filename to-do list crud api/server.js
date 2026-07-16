@@ -1,9 +1,15 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const openApiSpec = require('./openapi.json');
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
+app.get('/openapi.json', (request, response) => {
+  response.status(200).json(openApiSpec);
+});
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 const apiInfo = {
   name: 'Task API',
