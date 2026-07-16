@@ -1,0 +1,12 @@
+{
+  "name": "to-do-list-crud-api",
+  "version": "1.0.0",
+  "description": "FlyRank Internship Week 2 Assignment A1 - Task API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
