@@ -60,6 +60,58 @@ app.post('/tasks', (request, response) => {
   response.status(201).json(newTask);
 });
 
+app.put('/tasks/:id', (request, response) => {
+  const taskId = Number(request.params.id);
+  const task = tasks.find((item) => item.id === taskId);
+
+  if (!task) {
+    response.status(404).json({ error: `Task ${request.params.id} not found` });
+    return;
+  }
+
+  const hasTitle = Object.prototype.hasOwnProperty.call(request.body, 'title');
+  const hasDone = Object.prototype.hasOwnProperty.call(request.body, 'done');
+  const title = hasTitle && typeof request.body.title === 'string' ? request.body.title.trim() : undefined;
+  const done = hasDone && typeof request.body.done === 'boolean' ? request.body.done : undefined;
+
+  if ((!hasTitle && !hasDone) || (hasTitle && title === '') || (hasDone && typeof request.body.done !== 'boolean')) {
+    response.status(400).json({ error: 'Provide a valid title and/or done value' });
+    return;
+  }
+
+  if (title !== undefined) {
+    task.title = title;
+  }
+
+  if (done !== undefined) {
+    task.done = done;
+  }
+
+  response.status(200).json(task);
+});
+
+app.delete('/tasks/:id', (request, response) => {
+  const taskId = Number(request.params.id);
+  const taskIndex = tasks.findIndex((item) => item.id === taskId);
+
+  if (taskIndex === -1) {
+    response.status(404).json({ error: `Task ${request.params.id} not found` });
+    return;
+  }
+
+  tasks.splice(taskIndex, 1);
+  response.status(204).send();
+});
+
+app.use((error, request, response, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    response.status(400).json({ error: 'Invalid JSON body' });
+    return;
+  }
+
+  next(error);
+});
+
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
 });
