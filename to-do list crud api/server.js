@@ -11,17 +11,39 @@ app.get('/openapi.json', (request, response) => {
 });
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
-const apiInfo = {
-  name: 'Task API',
-  version: '1.0',
-  endpoints: ['/tasks']
-};
-
-const tasks = [
+const seedTasks = [
   { id: 1, title: 'Buy milk', done: false },
   { id: 2, title: 'Finish assignment', done: false },
   { id: 3, title: 'Read HTTP docs', done: true }
 ];
+
+const apiInfo = {
+  name: 'Task API',
+  version: '1.0',
+  endpoints: ['/tasks', '/stats', '/reset']
+};
+
+let tasks = seedTasks.map((task) => ({ ...task }));
+
+const cloneTasks = (taskList) => taskList.map((task) => ({ ...task }));
+
+const parseBooleanQuery = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === 'true') {
+    return true;
+  }
+
+  if (value === 'false') {
+    return false;
+  }
+
+  return null;
+};
+
+const getNextTaskId = () => (tasks.length > 0 ? Math.max(...tasks.map((task) => task.id)) + 1 : 1);
 
 app.get('/', (request, response) => {
   response.status(200).json(apiInfo);
@@ -32,6 +54,37 @@ app.get('/health', (request, response) => {
 });
 
 app.get('/tasks', (request, response) => {
+  const doneFilter = parseBooleanQuery(request.query.done);
+  const searchQuery = typeof request.query.search === 'string' ? request.query.search.trim().toLowerCase() : '';
+
+  if (doneFilter === null) {
+    response.status(400).json({ error: 'done must be true or false' });
+    return;
+  }
+
+  let filteredTasks = cloneTasks(tasks);
+
+  if (doneFilter !== undefined) {
+    filteredTasks = filteredTasks.filter((task) => task.done === doneFilter);
+  }
+
+  if (searchQuery) {
+    filteredTasks = filteredTasks.filter((task) => task.title.toLowerCase().includes(searchQuery));
+  }
+
+  response.status(200).json(filteredTasks);
+});
+
+app.get('/stats', (request, response) => {
+  const total = tasks.length;
+  const done = tasks.filter((task) => task.done).length;
+  const open = total - done;
+
+  response.status(200).json({ total, done, open });
+});
+
+app.post('/reset', (request, response) => {
+  tasks = cloneTasks(seedTasks);
   response.status(200).json(tasks);
 });
 
@@ -55,7 +108,7 @@ app.post('/tasks', (request, response) => {
     return;
   }
 
-  const nextId = tasks.length > 0 ? Math.max(...tasks.map((task) => task.id)) + 1 : 1;
+  const nextId = getNextTaskId();
   const newTask = {
     id: nextId,
     title,
