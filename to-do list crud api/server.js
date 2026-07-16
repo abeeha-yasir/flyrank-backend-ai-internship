@@ -3,6 +3,8 @@ const express = require('express');
 const app = express();
 const port = 3000;
 
+app.use(express.json());
+
 const apiInfo = {
   name: 'Task API',
   version: '1.0',
@@ -37,6 +39,25 @@ app.get('/tasks/:id', (request, response) => {
   }
 
   response.status(200).json(task);
+});
+
+app.post('/tasks', (request, response) => {
+  const title = typeof request.body.title === 'string' ? request.body.title.trim() : '';
+
+  if (!title) {
+    response.status(400).json({ error: 'Title is required' });
+    return;
+  }
+
+  const nextId = tasks.length > 0 ? Math.max(...tasks.map((task) => task.id)) + 1 : 1;
+  const newTask = {
+    id: nextId,
+    title,
+    done: false
+  };
+
+  tasks.push(newTask);
+  response.status(201).json(newTask);
 });
 
 app.listen(port, () => {
