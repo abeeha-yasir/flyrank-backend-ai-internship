@@ -4,7 +4,8 @@
   "description": "FlyRank Internship Week 2 Assignment A1 - Task API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "express": "^4.21.2",
