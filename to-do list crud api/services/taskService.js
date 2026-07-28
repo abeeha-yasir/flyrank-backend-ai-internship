@@ -1,7 +1,5 @@
 const taskStorage = require('../storage/taskStorage');
 
-const getNextTaskId = (taskList) => (taskList.length > 0 ? Math.max(...taskList.map((task) => task.id)) + 1 : 1);
-
 const listTasks = () => taskStorage.getAllTasks();
 
 const getTaskById = (taskId) => taskStorage.getTaskById(taskId);
@@ -15,15 +13,10 @@ const createTask = (title) => {
     throw error;
   }
 
-  const taskList = taskStorage.getAllTasks();
-  const newTask = {
-    id: getNextTaskId(taskList),
+  return taskStorage.createTask({
     title: trimmedTitle,
     done: false
-  };
-
-  taskStorage.createTask(newTask);
-  return newTask;
+  });
 };
 
 const updateTask = (taskId, updates) => {
