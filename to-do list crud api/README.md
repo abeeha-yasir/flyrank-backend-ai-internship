@@ -20,7 +20,7 @@ That starts the server on `http://localhost:3000`.
 
 ## Database file
 
-The database file is created automatically as `tasks.db` in the project folder. It is created on first run and the `tasks` table is created automatically if it does not already exist.
+The database file is created automatically as `tasks.db` in the project folder. It is created on first run and the `tasks` table is created automatically if it does not already exist. The file is gitignored so each clean clone starts fresh.
 
 ## Endpoints
 
@@ -47,6 +47,10 @@ Stage 4 note: I also ran `SELECT COUNT(*) FROM tasks;` in DB Browser, and it ret
 Swagger UI is available at `http://localhost:3000/docs/`.
 
 ![Swagger UI screenshot](swagger-ui.png)
+
+## DB Browser screenshot
+
+Add a screenshot of `tasks.db` open in DB Browser for SQLite here.
 
 ## Notes
 
