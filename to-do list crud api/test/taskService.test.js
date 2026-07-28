@@ -33,3 +33,24 @@ test('creates a task with the database assigned id', () => {
   assert.deepStrictEqual(createdTask, { id: 4, title: 'Write docs', done: false });
   assert.equal(taskService.listTasks().length, 4);
 });
+
+test('updates a task in the database', () => {
+  const updatedTask = taskService.updateTask(1, { title: 'Buy oat milk', done: true });
+
+  assert.deepStrictEqual(updatedTask, { id: 1, title: 'Buy oat milk', done: true });
+  assert.deepStrictEqual(taskService.getTaskById(1), { id: 1, title: 'Buy oat milk', done: true });
+});
+
+test('deletes a task from the database', () => {
+  const deleted = taskService.deleteTask(1);
+
+  assert.equal(deleted, true);
+  assert.equal(taskService.getTaskById(1), null);
+  assert.equal(taskService.listTasks().length, 2);
+});
+
+test('rejects invalid task updates and unknown task ids', () => {
+  assert.throws(() => taskService.updateTask(999, { done: true }), (error) => error.statusCode === 404);
+  assert.throws(() => taskService.updateTask(1, {}), (error) => error.statusCode === 400);
+  assert.throws(() => taskService.deleteTask(999), (error) => error.statusCode === 404);
+});
