@@ -40,6 +40,8 @@ The database file is created automatically as `tasks.db` in the project folder. 
 SELECT * FROM tasks;
 ```
 
+Stage 4 note: I also ran `SELECT COUNT(*) FROM tasks;` in DB Browser, and it returned `3` for the three seeded tasks.
+
 ## Swagger UI
 
 Swagger UI is available at `http://localhost:3000/docs/`.
