@@ -55,17 +55,3 @@ Add a screenshot of `tasks.db` open in DB Browser for SQLite here.
 ## Notes
 
 The API now reads and writes task data from SQLite, so created tasks remain available after a restart. The initial seed runs once and is protected by the database table being empty before insertion.
-
-## AI vs me
-
-I kept the AI-generated variant in `ai-version/` so it stayed separate from the hand-built app.
-
-Prompt used:
-
-> Move an in-memory CRUD task API to SQLite in Node.js using Express and better-sqlite3. Keep the same endpoints and response shapes as the original API: GET /tasks, GET /tasks/:id, POST /tasks, PUT /tasks/:id, DELETE /tasks/:id. Create a tasks table automatically if it is missing, with columns id as an integer primary key, title as text, and done as a boolean stored as 0/1. Seed exactly three example tasks only when the table is empty so the seed never duplicates on restart. Use parameterized SQL queries for all reads, inserts, updates, and deletes. Missing or empty titles must still return 400, unknown ids must return 404 with Task not found, successful create must return 201, successful update must return 200, and successful delete must return 204 with no body. The database should live in tasks.db and be created automatically on first run.
-
-Differences I found:
-
-1. The AI variant used `AUTOINCREMENT` on the primary key, while my version relies on SQLite's default rowid primary-key behavior.
-2. The AI variant wrapped seed inserts in a transaction and used tuple-style seed data, while my version keeps the seeding logic in the main storage file alongside the other CRUD helpers.
-3. The AI variant returned `Task not found` from the service layer for missing ids, while my hand-built version preserves the original `Task ${id} not found` message in the internal service error path and normalizes the route-level 404 response.
