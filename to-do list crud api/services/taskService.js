@@ -1,58 +1,8 @@
 const taskStorage = require('../storage/taskStorage');
 
-const parseBooleanQuery = (value) => {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (value === 'true') {
-    return true;
-  }
-
-  if (value === 'false') {
-    return false;
-  }
-
-  return null;
-};
-
 const getNextTaskId = (taskList) => (taskList.length > 0 ? Math.max(...taskList.map((task) => task.id)) + 1 : 1);
 
-const listTasks = ({ done, search } = {}) => {
-  const doneFilter = parseBooleanQuery(done);
-  const searchQuery = typeof search === 'string' ? search.trim().toLowerCase() : '';
-
-  if (doneFilter === null) {
-    const error = new Error('done must be true or false');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  let filteredTasks = taskStorage.getAllTasks();
-
-  if (doneFilter !== undefined) {
-    filteredTasks = filteredTasks.filter((task) => task.done === doneFilter);
-  }
-
-  if (searchQuery) {
-    filteredTasks = filteredTasks.filter((task) => task.title.toLowerCase().includes(searchQuery));
-  }
-
-  return filteredTasks;
-};
-
-const getStats = () => {
-  const tasks = taskStorage.getAllTasks();
-  const total = tasks.length;
-  const done = tasks.filter((task) => task.done).length;
-  return { total, done, open: total - done };
-};
-
-const resetTasks = () => taskStorage.resetTasks();
+const listTasks = () => taskStorage.getAllTasks();
 
 const getTaskById = (taskId) => taskStorage.getTaskById(taskId);
 
@@ -120,10 +70,7 @@ const deleteTask = (taskId) => {
 };
 
 module.exports = {
-  parseBooleanQuery,
   listTasks,
-  getStats,
-  resetTasks,
   getTaskById,
   createTask,
   updateTask,

@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/', (request, response) => {
   try {
-    const tasks = taskService.listTasks({ done: request.query.done, search: request.query.search });
+    const tasks = taskService.listTasks();
     response.status(200).json(tasks);
   } catch (error) {
     response.status(error.statusCode || 500).json({ error: error.message });
@@ -16,7 +16,7 @@ router.get('/:id', (request, response) => {
   const task = taskService.getTaskById(Number(request.params.id));
 
   if (!task) {
-    response.status(404).json({ error: `Task ${request.params.id} not found` });
+    response.status(404).json({ error: 'Task not found' });
     return;
   }
 
