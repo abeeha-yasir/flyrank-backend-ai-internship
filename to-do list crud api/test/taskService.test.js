@@ -25,3 +25,11 @@ test('returns null for an unknown task id', () => {
 
   assert.equal(task, null);
 });
+
+test('creates a task with the database assigned id', () => {
+  const createdTask = taskService.createTask('Write docs');
+
+  assert.equal(createdTask.id, 4);
+  assert.deepStrictEqual(createdTask, { id: 4, title: 'Write docs', done: false });
+  assert.equal(taskService.listTasks().length, 4);
+});
