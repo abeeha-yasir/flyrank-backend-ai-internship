@@ -12,15 +12,6 @@ router.get('/', (request, response) => {
   }
 });
 
-router.get('/stats', (request, response) => {
-  response.status(200).json(taskService.getStats());
-});
-
-router.post('/reset', (request, response) => {
-  const tasks = taskService.resetTasks();
-  response.status(200).json(tasks);
-});
-
 router.get('/:id', (request, response) => {
   const task = taskService.getTaskById(Number(request.params.id));
 

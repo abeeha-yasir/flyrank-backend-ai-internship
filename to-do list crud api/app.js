@@ -15,7 +15,7 @@ app.get('/', (request, response) => {
   response.status(200).json({
     name: 'Task API',
     version: '1.0',
-    endpoints: ['/tasks', '/stats', '/reset']
+    endpoints: ['/tasks']
   });
 });
 

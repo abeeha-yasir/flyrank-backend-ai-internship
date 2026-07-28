@@ -1,8 +1,12 @@
-# FlyRank Internship Week 2 Assignment A1
+# FlyRank Internship Week 3 Assignment A2
 
 ## What this is
 
-This project is a small in-memory CRUD API for a to-do list, built with Node.js, Express, and Swagger UI.
+This project is a CRUD API for a to-do list that now uses SQLite for persistent storage instead of an in-memory array. The API keeps the same endpoints as the Week 2 version, but tasks now survive server restarts because they live in a local database file.
+
+## Why SQLite?
+
+SQLite was chosen because it is a single-file database with zero setup. It is simple to run locally, creates the database automatically, and works well for small apps and learning projects like this one.
 
 ## How to run
 
@@ -13,6 +17,10 @@ npm start
 ```
 
 That starts the server on `http://localhost:3000`.
+
+## Database file
+
+The database file is created automatically as `tasks.db` in the project folder. It is created on first run and the `tasks` table is created automatically if it does not already exist.
 
 ## Endpoints
 
@@ -26,31 +34,18 @@ That starts the server on `http://localhost:3000`.
 | PUT | `/tasks/:id` | Updates a task | `200` |
 | DELETE | `/tasks/:id` | Deletes a task | `204` |
 
-## Example curl output
+## Example SQL query
 
-```bash
-curl -i http://localhost:3000/tasks/99
-```
-
-```text
-HTTP/1.1 404 Not Found
-Content-Type: application/json; charset=utf-8
-
-{"error":"Task 99 not found"}
+```sql
+SELECT * FROM tasks;
 ```
 
 ## Swagger UI
 
 Swagger UI is available at `http://localhost:3000/docs/`.
 
-![Swagger UI screenshot](to-do%20list%20crud%20api/swagger-ui.png)
+![Swagger UI screenshot](swagger-ui.png)
 
 ## Notes
 
-The API stores tasks only in memory, so data resets when the server restarts.
-
-## Optional extras
-
-I added query filtering and search on `GET /tasks`, a `GET /stats` endpoint, and `POST /reset` to restore the seeded tasks.
-
-On restart, all created tasks disappear because they only live in memory. That is the intended behavior for this stage and the reason the next week introduces persistence.
+The API now reads and writes task data from SQLite, so created tasks remain available after a restart. The initial seed runs once and is protected by the database table being empty before insertion.

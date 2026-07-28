@@ -1,47 +1,76 @@
+const path = require('path');
+const Database = require('better-sqlite3');
+
 const seedTasks = [
-  { id: 1, title: 'Buy milk', done: false },
-  { id: 2, title: 'Finish assignment', done: false },
-  { id: 3, title: 'Read HTTP docs', done: true }
+  { title: 'Buy milk', done: false },
+  { title: 'Finish assignment', done: false },
+  { title: 'Read HTTP docs', done: true }
 ];
 
-let tasks = seedTasks.map((task) => ({ ...task }));
+const databasePath = path.resolve(__dirname, '..', 'tasks.db');
+const db = new Database(databasePath);
 
-const cloneTasks = (taskList) => taskList.map((task) => ({ ...task }));
+const rowToTask = (row) => ({ id: row.id, title: row.title, done: Boolean(row.done) });
 
-const getAllTasks = () => cloneTasks(tasks);
+const initializeDatabase = () => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      done INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  const rowCount = db.prepare('SELECT COUNT(*) AS count FROM tasks').get().count;
+
+  if (rowCount === 0) {
+    const seed = db.transaction((tasksToSeed) => {
+      const insertTask = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+      tasksToSeed.forEach((task) => {
+        insertTask.run(task.title, task.done ? 1 : 0);
+      });
+    });
+
+    seed(seedTasks);
+  }
+};
+
+initializeDatabase();
+
+const getAllTasks = () => db.prepare('SELECT id, title, done FROM tasks ORDER BY id').all().map(rowToTask);
 
 const resetTasks = () => {
-  tasks = cloneTasks(seedTasks);
+  db.exec('DROP TABLE IF EXISTS tasks;');
+  initializeDatabase();
   return getAllTasks();
 };
 
-const getTaskById = (taskId) => tasks.find((task) => task.id === taskId);
+const getTaskById = (taskId) => {
+  const row = db.prepare('SELECT id, title, done FROM tasks WHERE id = ?').get(taskId);
+  return row ? rowToTask(row) : null;
+};
 
 const createTask = (newTask) => {
-  tasks.push(newTask);
-  return { ...newTask };
+  const insertTask = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+  const result = insertTask.run(newTask.title, newTask.done ? 1 : 0);
+  return { id: Number(result.lastInsertRowid), ...newTask };
 };
 
 const updateTask = (task) => {
-  const taskIndex = tasks.findIndex((item) => item.id === task.id);
+  const updateTaskRow = db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?');
+  const result = updateTaskRow.run(task.title, task.done ? 1 : 0, task.id);
 
-  if (taskIndex === -1) {
+  if (result.changes === 0) {
     return null;
   }
 
-  tasks[taskIndex] = { ...task };
-  return { ...tasks[taskIndex] };
+  return { ...task };
 };
 
 const deleteTask = (taskId) => {
-  const taskIndex = tasks.findIndex((item) => item.id === taskId);
-
-  if (taskIndex === -1) {
-    return false;
-  }
-
-  tasks.splice(taskIndex, 1);
-  return true;
+  const deleteTaskRow = db.prepare('DELETE FROM tasks WHERE id = ?');
+  const result = deleteTaskRow.run(taskId);
+  return result.changes > 0;
 };
 
 module.exports = {
