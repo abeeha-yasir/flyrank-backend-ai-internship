@@ -43,6 +43,17 @@ app.post('/auth/login', async (req, res) => {
   });
 });
 
+app.get('/public/info', (req, res) => {
+  res.json({ message: 'Welcome stranger! This info is public.' });
+});
+
+app.get('/protected/profile', (req, res) => {
+  const authorization = req.get('authorization') || '';
+  const tokenMatch = authorization.match(/^Bearer\s+([^\s]+)$/i);
+  if (!tokenMatch) return res.status(401).json({ error: 'Access token required' });
+  res.json({ message: 'Token received', token_present: Boolean(tokenMatch[1]) });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
