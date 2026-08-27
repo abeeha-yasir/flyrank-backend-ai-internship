@@ -2,25 +2,44 @@
 
 ## What this is
 
-This project is a CRUD API for a to-do list that now uses SQLite for persistent storage instead of an in-memory array. The API keeps the same endpoints as the Week 2 version, but tasks now survive server restarts because they live in a local database file.
+This project is a CRUD API for a to-do list backed by Postgres instead of an in-memory array or SQLite file. The route and service contract stays the same from the caller’s perspective, and only the repository behind the storage boundary was swapped.
 
-## Why SQLite?
+## Architecture note
 
-SQLite was chosen because it is a single-file database with zero setup. It is simple to run locally, creates the database automatically, and works well for small apps and learning projects like this one.
+The app keeps the same API surface, but the storage layer now uses a Postgres repository in `storage/taskStorage.js`. The service still calls methods such as `getAllTasks`, `getTaskById`, `createTask`, `updateTask`, and `deleteTask`, while the repository implementation talks to Postgres using `pg`.
 
-## How to run
+## Why Postgres?
 
-From the `to-do list crud api` folder:
+Postgres gives us durable data, SQL transactions, real table semantics, and a local stack that resembles later assignments with jobs, caching, and retrieval services.
+
+## Environment setup
+
+Create a local `.env` file from the example:
 
 ```bash
-npm start
+cp .env.example .env
 ```
 
-That starts the server on `http://localhost:3000`.
+The defaults are:
 
-## Database file
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/taskdb
+PORT=3000
+```
 
-The database file is created automatically as `tasks.db` in the project folder. It is created on first run and the `tasks` table is created automatically if it does not already exist. The file is gitignored so each clean clone starts fresh.
+## Run locally with Docker
+
+From the project folder:
+
+```bash
+docker compose up --build
+```
+
+The app is available at `http://localhost:3000` and the Postgres database is exposed on `localhost:5432`.
+
+## Database initialization
+
+The database is created automatically by Postgres, and the script in `db/init.sql` creates the `tasks` table and seeds it only when it is empty.
 
 ## Endpoints
 
@@ -37,10 +56,8 @@ The database file is created automatically as `tasks.db` in the project folder. 
 ## Example SQL query
 
 ```sql
-SELECT * FROM tasks;
+SELECT * FROM tasks ORDER BY id;
 ```
-
-Stage 4 note: I also ran `SELECT COUNT(*) FROM tasks;` in DB Browser, and it returned `3` for the three seeded tasks.
 
 ## Swagger UI
 
@@ -48,10 +65,20 @@ Swagger UI is available at `http://localhost:3000/docs/`.
 
 ![Swagger UI screenshot](swagger-ui.png)
 
-## DB Browser screenshot
+## Persistence proof
 
-Add a screenshot of `tasks.db` open in DB Browser for SQLite here.
+The task data lives in the Postgres volume, so it survives container restarts. To check persistence:
+
+```bash
+docker compose up -d
+curl -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d '{"title":"Persist me"}'
+docker compose down
+docker compose up -d
+curl http://localhost:3000/tasks
+```
+
+The row created before the restart remains available after the stack restarts.
 
 ## Notes
 
-The API now reads and writes task data from SQLite, so created tasks remain available after a restart. The initial seed runs once and is protected by the database table being empty before insertion.
+This codebase intentionally keeps the service and route layers consistent while swapping only the repository behind the storage boundary. That is the architectural proof that the app can move from in-memory or SQLite to Postgres without reworking the API layer.

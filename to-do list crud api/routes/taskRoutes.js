@@ -3,38 +3,42 @@ const taskService = require('../services/taskService');
 
 const router = express.Router();
 
-router.get('/', (request, response) => {
+router.get('/', async (request, response) => {
   try {
-    const tasks = taskService.listTasks();
+    const tasks = await taskService.listTasks();
     response.status(200).json(tasks);
   } catch (error) {
     response.status(error.statusCode || 500).json({ error: error.message });
   }
 });
 
-router.get('/:id', (request, response) => {
-  const task = taskService.getTaskById(Number(request.params.id));
+router.get('/:id', async (request, response) => {
+  try {
+    const task = await taskService.getTaskById(Number(request.params.id));
 
-  if (!task) {
-    response.status(404).json({ error: 'Task not found' });
-    return;
+    if (!task) {
+      response.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    response.status(200).json(task);
+  } catch (error) {
+    response.status(error.statusCode || 500).json({ error: error.message });
   }
-
-  response.status(200).json(task);
 });
 
-router.post('/', (request, response) => {
+router.post('/', async (request, response) => {
   try {
-    const newTask = taskService.createTask(request.body.title);
+    const newTask = await taskService.createTask(request.body.title);
     response.status(201).json(newTask);
   } catch (error) {
     response.status(error.statusCode || 500).json({ error: error.message });
   }
 });
 
-router.put('/:id', (request, response) => {
+router.put('/:id', async (request, response) => {
   try {
-    const updatedTask = taskService.updateTask(Number(request.params.id), request.body);
+    const updatedTask = await taskService.updateTask(Number(request.params.id), request.body);
     response.status(200).json(updatedTask);
   } catch (error) {
     if (error.statusCode === 404) {
@@ -46,9 +50,9 @@ router.put('/:id', (request, response) => {
   }
 });
 
-router.delete('/:id', (request, response) => {
+router.delete('/:id', async (request, response) => {
   try {
-    taskService.deleteTask(Number(request.params.id));
+    await taskService.deleteTask(Number(request.params.id));
     response.status(204).send();
   } catch (error) {
     response.status(error.statusCode || 500).json({ error: error.message });

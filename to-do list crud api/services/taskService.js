@@ -1,10 +1,10 @@
 const taskStorage = require('../storage/taskStorage');
 
-const listTasks = () => taskStorage.getAllTasks();
+const listTasks = async () => taskStorage.getAllTasks();
 
-const getTaskById = (taskId) => taskStorage.getTaskById(taskId);
+const getTaskById = async (taskId) => taskStorage.getTaskById(taskId);
 
-const createTask = (title) => {
+const createTask = async (title) => {
   const trimmedTitle = typeof title === 'string' ? title.trim() : '';
 
   if (!trimmedTitle) {
@@ -19,8 +19,8 @@ const createTask = (title) => {
   });
 };
 
-const updateTask = (taskId, updates) => {
-  const existingTask = taskStorage.getTaskById(taskId);
+const updateTask = async (taskId, updates) => {
+  const existingTask = await taskStorage.getTaskById(taskId);
 
   if (!existingTask) {
     const error = new Error(`Task ${taskId} not found`);
@@ -45,12 +45,18 @@ const updateTask = (taskId, updates) => {
     ...(done !== undefined ? { done } : {})
   };
 
-  taskStorage.updateTask(updatedTask);
+  const result = await taskStorage.updateTask(updatedTask);
+  if (!result) {
+    const error = new Error(`Task ${taskId} not found`);
+    error.statusCode = 404;
+    throw error;
+  }
+
   return updatedTask;
 };
 
-const deleteTask = (taskId) => {
-  const existingTask = taskStorage.getTaskById(taskId);
+const deleteTask = async (taskId) => {
+  const existingTask = await taskStorage.getTaskById(taskId);
 
   if (!existingTask) {
     const error = new Error(`Task ${taskId} not found`);
@@ -58,7 +64,13 @@ const deleteTask = (taskId) => {
     throw error;
   }
 
-  taskStorage.deleteTask(taskId);
+  const deleted = await taskStorage.deleteTask(taskId);
+  if (!deleted) {
+    const error = new Error(`Task ${taskId} not found`);
+    error.statusCode = 404;
+    throw error;
+  }
+
   return true;
 };
 
