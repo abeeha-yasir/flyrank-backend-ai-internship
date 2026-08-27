@@ -90,6 +90,20 @@ curl http://localhost:3000/health
 
 This should return a healthy response when both Postgres and Redis are online.
 
+## Index + `EXPLAIN ANALYZE`
+
+A useful Postgres optimization for this app is an index on the `done` column, since filtering active vs completed tasks is common.
+
+```sql
+EXPLAIN ANALYZE SELECT * FROM tasks WHERE done = false;
+
+CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks (done);
+
+EXPLAIN ANALYZE SELECT * FROM tasks WHERE done = false;
+```
+
+Before the index, Postgres is likely to do a sequential scan. After the index, it can use an index scan and the plan will show a much lower cost for the same query on a larger seeded table.
+
 ## Notes
 
 This codebase intentionally keeps the service and route layers consistent while swapping only the repository behind the storage boundary. That is the architectural proof that the app can move from in-memory or SQLite to Postgres without reworking the API layer.

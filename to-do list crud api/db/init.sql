@@ -15,3 +15,6 @@ WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE title = 'Finish assignment');
 INSERT INTO tasks (title, done)
 SELECT 'Read HTTP docs', TRUE
 WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE title = 'Read HTTP docs');
+
+CREATE INDEX IF NOT EXISTS idx_tasks_done
+ON tasks (done);
