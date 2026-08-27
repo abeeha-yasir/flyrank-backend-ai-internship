@@ -79,6 +79,17 @@ curl http://localhost:3000/tasks
 
 The row created before the restart remains available after the stack restarts.
 
+## Redis integration
+
+The Docker stack also includes a Redis service. The app connects to Redis using the `REDIS_URL` environment value and the `/health` endpoint verifies Redis is reachable by calling `PING`.
+
+```bash
+docker compose up --build
+curl http://localhost:3000/health
+```
+
+This should return a healthy response when both Postgres and Redis are online.
+
 ## Notes
 
 This codebase intentionally keeps the service and route layers consistent while swapping only the repository behind the storage boundary. That is the architectural proof that the app can move from in-memory or SQLite to Postgres without reworking the API layer.
