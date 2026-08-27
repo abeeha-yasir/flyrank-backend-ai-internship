@@ -16,6 +16,24 @@ function authUnavailable(res) {
   return res.status(503).json({ error: 'Supabase is not configured' });
 }
 
+async function requireAuth(req, res, next) {
+  const authorization = req.get('authorization') || '';
+  const tokenMatch = authorization.match(/^Bearer\s+([^\s]+)$/i);
+  if (!tokenMatch) return res.status(401).json({ error: 'Access token required' });
+  if (!supabase) return authUnavailable(res);
+
+  try {
+    const { data, error } = await supabase.auth.getUser(tokenMatch[1]);
+    if (error || !data.user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    req.user = data.user;
+    return next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
 app.post('/auth/signup', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
@@ -47,22 +65,22 @@ app.get('/public/info', (req, res) => {
   res.json({ message: 'Welcome stranger! This info is public.' });
 });
 
-app.get('/protected/profile', (req, res) => {
-  const authorization = req.get('authorization') || '';
-  const tokenMatch = authorization.match(/^Bearer\s+([^\s]+)$/i);
-  if (!tokenMatch) return res.status(401).json({ error: 'Access token required' });
-  if (!supabase) return authUnavailable(res);
+app.get('/protected/profile', requireAuth, (req, res) => {
+  res.json({
+    id: req.user.id,
+    email: req.user.email,
+    created_at: req.user.created_at,
+  });
+});
 
-  supabase.auth.getUser(tokenMatch[1]).then(({ data, error }) => {
-    if (error || !data.user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    return res.json({
-      id: data.user.id,
-      email: data.user.email,
-      created_at: data.user.created_at,
-    });
-  }).catch(() => res.status(401).json({ error: 'Invalid or expired token' }));
+app.get('/protected/dashboard', requireAuth, (req, res) => {
+  res.json({ message: 'Welcome to your dashboard.' });
+});
+
+app.post('/auth/logout', requireAuth, async (req, res) => {
+  const { error } = await supabase.auth.signOut();
+  if (error) return res.status(401).json({ error: error.message });
+  return res.status(204).send();
 });
 
 app.get('/health', (req, res) => {
