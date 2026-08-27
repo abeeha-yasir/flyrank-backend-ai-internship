@@ -51,7 +51,18 @@ app.get('/protected/profile', (req, res) => {
   const authorization = req.get('authorization') || '';
   const tokenMatch = authorization.match(/^Bearer\s+([^\s]+)$/i);
   if (!tokenMatch) return res.status(401).json({ error: 'Access token required' });
-  res.json({ message: 'Token received', token_present: Boolean(tokenMatch[1]) });
+  if (!supabase) return authUnavailable(res);
+
+  supabase.auth.getUser(tokenMatch[1]).then(({ data, error }) => {
+    if (error || !data.user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    return res.json({
+      id: data.user.id,
+      email: data.user.email,
+      created_at: data.user.created_at,
+    });
+  }).catch(() => res.status(401).json({ error: 'Invalid or expired token' }));
 });
 
 app.get('/health', (req, res) => {
