@@ -1,2 +1,5 @@
+.env
 node_modules/
 tasks.db
+
+postgres-data/

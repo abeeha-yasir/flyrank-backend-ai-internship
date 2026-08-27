@@ -1,5 +1,5 @@
-const path = require('path');
-const Database = require('better-sqlite3');
+require('dotenv').config();
+const { Pool } = require('pg');
 
 const seedTasks = [
   { title: 'Buy milk', done: false },
@@ -7,70 +7,78 @@ const seedTasks = [
   { title: 'Read HTTP docs', done: true }
 ];
 
-const databasePath = path.resolve(__dirname, '..', 'tasks.db');
-const db = new Database(databasePath);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
 
 const rowToTask = (row) => ({ id: row.id, title: row.title, done: Boolean(row.done) });
 
-const initializeDatabase = () => {
-  db.exec(`
+const initializeDatabase = async () => {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
-      done INTEGER NOT NULL DEFAULT 0
+      done BOOLEAN NOT NULL DEFAULT FALSE
     )
   `);
 
-  const rowCount = db.prepare('SELECT COUNT(*) AS count FROM tasks').get().count;
+  const rowCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM tasks');
+  const rowCount = rowCountResult.rows[0].count;
 
   if (rowCount === 0) {
-    const seed = db.transaction((tasksToSeed) => {
-      const insertTask = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
-      tasksToSeed.forEach((task) => {
-        insertTask.run(task.title, task.done ? 1 : 0);
-      });
-    });
-
-    seed(seedTasks);
+    const insertTask = 'INSERT INTO tasks (title, done) VALUES ($1, $2)';
+    for (const task of seedTasks) {
+      await pool.query(insertTask, [task.title, task.done]);
+    }
   }
 };
 
-initializeDatabase();
+initializeDatabase().catch((error) => {
+  console.error('Failed to initialize Postgres database:', error.message);
+  process.exit(1);
+});
 
-const getAllTasks = () => db.prepare('SELECT id, title, done FROM tasks ORDER BY id').all().map(rowToTask);
+const getAllTasks = async () => {
+  const result = await pool.query('SELECT id, title, done FROM tasks ORDER BY id');
+  return result.rows.map(rowToTask);
+};
 
-const resetTasks = () => {
-  db.exec('DROP TABLE IF EXISTS tasks;');
-  initializeDatabase();
+const resetTasks = async () => {
+  await pool.query('DROP TABLE IF EXISTS tasks;');
+  await initializeDatabase();
   return getAllTasks();
 };
 
-const getTaskById = (taskId) => {
-  const row = db.prepare('SELECT id, title, done FROM tasks WHERE id = ?').get(taskId);
-  return row ? rowToTask(row) : null;
+const getTaskById = async (taskId) => {
+  const result = await pool.query('SELECT id, title, done FROM tasks WHERE id = $1', [taskId]);
+  return result.rows[0] ? rowToTask(result.rows[0]) : null;
 };
 
-const createTask = (newTask) => {
-  const insertTask = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
-  const result = insertTask.run(newTask.title, newTask.done ? 1 : 0);
-  return { id: Number(result.lastInsertRowid), ...newTask };
+const createTask = async (newTask) => {
+  const result = await pool.query(
+    'INSERT INTO tasks (title, done) VALUES ($1, $2) RETURNING id, title, done',
+    [newTask.title, newTask.done]
+  );
+
+  return rowToTask(result.rows[0]);
 };
 
-const updateTask = (task) => {
-  const updateTaskRow = db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?');
-  const result = updateTaskRow.run(task.title, task.done ? 1 : 0, task.id);
+const updateTask = async (task) => {
+  const result = await pool.query(
+    'UPDATE tasks SET title = $1, done = $2 WHERE id = $3 RETURNING id, title, done',
+    [task.title, task.done, task.id]
+  );
 
-  if (result.changes === 0) {
+  if (result.rowCount === 0) {
     return null;
   }
 
-  return { ...task };
+  return rowToTask(result.rows[0]);
 };
 
-const deleteTask = (taskId) => {
-  const deleteTaskRow = db.prepare('DELETE FROM tasks WHERE id = ?');
-  const result = deleteTaskRow.run(taskId);
-  return result.changes > 0;
+const deleteTask = async (taskId) => {
+  const result = await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+  return result.rowCount > 0;
 };
 
 module.exports = {

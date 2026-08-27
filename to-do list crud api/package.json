@@ -1,15 +1,16 @@
 {
   "name": "to-do-list-crud-api",
   "version": "1.0.0",
-  "description": "FlyRank Internship Week 3 Assignment A2 - SQLite-backed Task API",
+  "description": "FlyRank Internship Week 3 Assignment A2 - Postgres-backed Task API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node --test"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "pg": "^8.13.0",
     "swagger-ui-express": "^5.0.1"
   }
 }
