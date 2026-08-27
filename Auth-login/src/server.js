@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const swaggerUi = require('swagger-ui-express');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -11,6 +12,35 @@ const supabase = hasSupabaseConfig
   : null;
 
 app.use(express.json());
+
+const openapiSpec = {
+  openapi: '3.0.3',
+  info: {
+    title: 'Auth Login API',
+    version: '1.0.0',
+    description: 'Secure authentication API backed by Supabase Auth.',
+  },
+  servers: [{ url: 'http://localhost:3000' }],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+    },
+  },
+  paths: {
+    '/auth/signup': { post: { summary: 'Create an account' } },
+    '/auth/login': { post: { summary: 'Log in and receive tokens' } },
+    '/auth/logout': { post: { summary: 'Log out', security: [{ bearerAuth: [] }] } },
+    '/protected/profile': { get: { summary: 'Read the current user profile', security: [{ bearerAuth: [] }] } },
+    '/protected/dashboard': { get: { summary: 'Read the protected dashboard', security: [{ bearerAuth: [] }] } },
+    '/public/info': { get: { summary: 'Read public information' } },
+  },
+};
+
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 function authUnavailable(res) {
   return res.status(503).json({ error: 'Supabase is not configured' });
