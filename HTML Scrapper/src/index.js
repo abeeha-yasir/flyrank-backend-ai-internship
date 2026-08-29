@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const cheerio = require("cheerio");
+const { z } = require("zod");
 
 const BASE_URL = "https://books.toscrape.com";
 const CATALOGUE_PAGE_1 = `${BASE_URL}/catalogue/page-1.html`;
@@ -14,6 +15,21 @@ const OUTPUT_DIR = path.join(__dirname, "..", "output");
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+});
+
+/**
+ * Define the book record schema
+ */
+const BookRecordSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  product_url: z.string().url("Product URL must be valid"),
+  price_text: z.string().nullable(),
+  price_gbp: z.number().positive("Price must be positive").nullable(),
+  availability_text: z.string().nullable(),
+  rating_text: z.enum(["One", "Two", "Three", "Four", "Five"]).nullable(),
+  description: z.string().nullable(),
+  source_page: z.string().url("Source page must be valid"),
+  fetched_at: z.string().datetime("Fetched at must be ISO datetime"),
 });
 
 /**
@@ -134,31 +150,60 @@ function extractBookRecord(html, productUrl, cataloguePage, fetchedAt) {
     price_text: priceText,
     availability_text: availabilityText,
     rating_text: ratingText,
-    description: description || null, // Store null if no description
+    description: description || null,
     source_page: cataloguePage,
     fetched_at: fetchedAt,
   };
 }
 
 /**
- * Stage 3: Extract book details
+ * Normalize price text to number
  */
-async function runStage3() {
+function normalizePrice(priceText) {
+  if (!priceText) return null;
+  // Remove currency symbols and parse
+  const match = priceText.match(/[\d.]+/);
+  return match ? parseFloat(match[0]) : null;
+}
+
+/**
+ * Normalize a raw record to clean record
+ */
+function normalizeRecord(rawRecord) {
+  return {
+    title: rawRecord.title,
+    product_url: rawRecord.product_url,
+    price_text: rawRecord.price_text,
+    price_gbp: normalizePrice(rawRecord.price_text),
+    availability_text: rawRecord.availability_text,
+    rating_text: rawRecord.rating_text,
+    description: rawRecord.description,
+    source_page: rawRecord.source_page,
+    fetched_at: rawRecord.fetched_at,
+  };
+}
+
+/**
+ * Stage 4: Validate and store records
+ */
+async function runStage4() {
   console.log("=" .repeat(60));
-  console.log("Stage 3: Extract book details");
+  console.log("Stage 4: Clean it, check it, store it");
   console.log("=" .repeat(60));
   console.log();
 
   const allBookUrls = [];
   const uniqueUrls = new Set();
   const rawRecords = [];
+  const validRecords = [];
+  const invalidRecords = [];
   let currentPageUrl = CATALOGUE_PAGE_1;
   let pageCount = 0;
   const maxPages = 3;
 
   try {
     // Stage 2: Discover all catalogue pages and book URLs
-    console.log("Discovering catalogue pages...\n");
+    console.log("Discovering catalogue pages...");
     while (currentPageUrl && pageCount < maxPages) {
       pageCount++;
       const cacheFile = path.join(CACHE_DIR, `catalogue-page-${pageCount}.html`);
@@ -182,12 +227,11 @@ async function runStage3() {
       }
     }
 
-    console.log(`Discovered ${uniqueUrls.size} unique books across ${pageCount} pages\n`);
+    console.log(`Found ${uniqueUrls.size} unique books\n`);
 
     // Stage 3: Extract details from each book page
-    console.log("Extracting book details...\n");
+    console.log("Extracting book details...");
     for (const bookUrl of Array.from(uniqueUrls)) {
-      // Create cache filename from URL
       const fileName = bookUrl.split("/").filter(Boolean).pop();
       const cacheFile = path.join(CACHE_DIR, `book-${fileName}.html`);
 
@@ -198,22 +242,66 @@ async function runStage3() {
       const record = extractBookRecord(html, bookUrl, CATALOGUE_PAGE_1, fetchedAt);
       rawRecords.push(record);
 
-      // Wait between requests (only if not from cache)
       if (!fromCache) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
-    console.log(`Extracted ${rawRecords.length} book records\n`);
+    console.log(`Extracted ${rawRecords.length} records\n`);
+
+    // Stage 4: Normalize and validate
+    console.log("Validating and normalizing records...");
+    const recordsToStore = new Map(); // Use map with URL as key for deduplication
+
+    for (const rawRecord of rawRecords) {
+      const normalized = normalizeRecord(rawRecord);
+
+      const result = BookRecordSchema.safeParse(normalized);
+
+      if (result.success) {
+        // Store using URL as key to ensure idempotency
+        recordsToStore.set(normalized.product_url, result.data);
+        validRecords.push(result.data);
+      } else {
+        invalidRecords.push({
+          record: normalized,
+          errors: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
+        });
+      }
+    }
+
+    console.log(`Valid records: ${validRecords.length}`);
+    console.log(`Invalid records: ${invalidRecords.length}\n`);
+
+    // Store valid records (deduplicated)
+    const finalRecords = Array.from(recordsToStore.values());
+    fs.writeFileSync(
+      path.join(OUTPUT_DIR, "books.json"),
+      JSON.stringify(finalRecords, null, 2),
+      "utf-8"
+    );
+
+    // Store invalid records
+    if (invalidRecords.length > 0) {
+      fs.writeFileSync(
+        path.join(OUTPUT_DIR, "errors.json"),
+        JSON.stringify(invalidRecords, null, 2),
+        "utf-8"
+      );
+    }
+
     console.log("=" .repeat(60));
-    console.log("Sample Raw Record:");
+    console.log("Sample Validated Record:");
     console.log("=" .repeat(60));
-    console.log(JSON.stringify(rawRecords[0], null, 2));
+    console.log(JSON.stringify(finalRecords[0], null, 2));
     console.log();
     console.log("=" .repeat(60));
-    console.log(`detail_pages=${rawRecords.length}`);
+    console.log(`output/books.json: ${finalRecords.length} unique records`);
+    console.log(
+      `output/errors.json: ${invalidRecords.length} invalid records`
+    );
     console.log("=" .repeat(60));
-    console.log("\nReady to proceed to Stage 4: Validate normalized records");
+    console.log("\nReady to proceed to Stage 5: Survive failures");
   } catch (error) {
     console.error(`✗ Error: ${error.message}`);
     process.exit(1);
@@ -221,4 +309,4 @@ async function runStage3() {
 }
 
 // Run the scraper
-runStage3();
+runStage4();
