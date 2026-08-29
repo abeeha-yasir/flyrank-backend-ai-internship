@@ -184,31 +184,45 @@ function normalizeRecord(rawRecord) {
 }
 
 /**
- * Stage 4: Validate and store records
+ * Stage 5: Survive failures and report
  */
-async function runStage4() {
+async function runStage5() {
   console.log("=" .repeat(60));
-  console.log("Stage 4: Clean it, check it, store it");
+  console.log("Stage 5: Survive failures, report the run");
   console.log("=" .repeat(60));
   console.log();
+
+  const startTime = Date.now();
+  const report = {
+    start_time: new Date().toISOString(),
+    pages_fetched: 0,
+    cache_hits: 0,
+    valid_records: 0,
+    invalid_records: 0,
+    failed_pages: [],
+  };
 
   const allBookUrls = [];
   const uniqueUrls = new Set();
   const rawRecords = [];
-  const validRecords = [];
   const invalidRecords = [];
   let currentPageUrl = CATALOGUE_PAGE_1;
   let pageCount = 0;
   const maxPages = 3;
 
   try {
-    // Stage 2: Discover all catalogue pages and book URLs
-    console.log("Discovering catalogue pages...");
+    // Discover all catalogue pages and book URLs
+    console.log("Stage 2: Discovering catalogue pages...");
     while (currentPageUrl && pageCount < maxPages) {
       pageCount++;
       const cacheFile = path.join(CACHE_DIR, `catalogue-page-${pageCount}.html`);
 
-      const { html } = await getCachedPage(currentPageUrl, cacheFile);
+      const { html, fromCache } = await getCachedPage(currentPageUrl, cacheFile);
+      if (fromCache) {
+        report.cache_hits++;
+      } else {
+        report.pages_fetched++;
+      }
 
       // Extract book links from this page
       const bookLinks = extractBookLinks(html, currentPageUrl);
@@ -229,51 +243,59 @@ async function runStage4() {
 
     console.log(`Found ${uniqueUrls.size} unique books\n`);
 
-    // Stage 3: Extract details from each book page
-    console.log("Extracting book details...");
+    // Extract details from each book page - handle failures gracefully
+    console.log("Stage 3: Extracting book details...");
     for (const bookUrl of Array.from(uniqueUrls)) {
       const fileName = bookUrl.split("/").filter(Boolean).pop();
       const cacheFile = path.join(CACHE_DIR, `book-${fileName}.html`);
 
-      const { html, fromCache } = await getCachedPage(bookUrl, cacheFile);
-      const fetchedAt = new Date().toISOString();
+      try {
+        const { html, fromCache } = await getCachedPage(bookUrl, cacheFile);
+        if (fromCache) {
+          report.cache_hits++;
+        } else {
+          report.pages_fetched++;
+        }
 
-      // Extract record
-      const record = extractBookRecord(html, bookUrl, CATALOGUE_PAGE_1, fetchedAt);
-      rawRecords.push(record);
+        const fetchedAt = new Date().toISOString();
+        const record = extractBookRecord(html, bookUrl, CATALOGUE_PAGE_1, fetchedAt);
+        rawRecords.push(record);
 
-      if (!fromCache) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!fromCache) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        // Log failed page and continue
+        report.failed_pages.push({
+          url: bookUrl,
+          error: error.message,
+        });
       }
     }
 
     console.log(`Extracted ${rawRecords.length} records\n`);
 
-    // Stage 4: Normalize and validate
-    console.log("Validating and normalizing records...");
-    const recordsToStore = new Map(); // Use map with URL as key for deduplication
+    // Validate and normalize
+    console.log("Stage 4: Validating records...");
+    const recordsToStore = new Map();
 
     for (const rawRecord of rawRecords) {
       const normalized = normalizeRecord(rawRecord);
-
       const result = BookRecordSchema.safeParse(normalized);
 
       if (result.success) {
-        // Store using URL as key to ensure idempotency
         recordsToStore.set(normalized.product_url, result.data);
-        validRecords.push(result.data);
+        report.valid_records++;
       } else {
         invalidRecords.push({
           record: normalized,
           errors: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
         });
+        report.invalid_records++;
       }
     }
 
-    console.log(`Valid records: ${validRecords.length}`);
-    console.log(`Invalid records: ${invalidRecords.length}\n`);
-
-    // Store valid records (deduplicated)
+    // Store records
     const finalRecords = Array.from(recordsToStore.values());
     fs.writeFileSync(
       path.join(OUTPUT_DIR, "books.json"),
@@ -281,7 +303,6 @@ async function runStage4() {
       "utf-8"
     );
 
-    // Store invalid records
     if (invalidRecords.length > 0) {
       fs.writeFileSync(
         path.join(OUTPUT_DIR, "errors.json"),
@@ -290,23 +311,33 @@ async function runStage4() {
       );
     }
 
-    console.log("=" .repeat(60));
-    console.log("Sample Validated Record:");
-    console.log("=" .repeat(60));
-    console.log(JSON.stringify(finalRecords[0], null, 2));
-    console.log();
-    console.log("=" .repeat(60));
-    console.log(`output/books.json: ${finalRecords.length} unique records`);
-    console.log(
-      `output/errors.json: ${invalidRecords.length} invalid records`
+    // Generate run report
+    report.duration_ms = Date.now() - startTime;
+    report.end_time = new Date().toISOString();
+
+    fs.writeFileSync(
+      path.join(OUTPUT_DIR, "run-report.json"),
+      JSON.stringify(report, null, 2),
+      "utf-8"
     );
+
+    console.log("\n" + "=" .repeat(60));
+    console.log("RUN REPORT");
     console.log("=" .repeat(60));
-    console.log("\nReady to proceed to Stage 5: Survive failures");
+    console.log(`Start Time: ${report.start_time}`);
+    console.log(`Duration: ${report.duration_ms}ms`);
+    console.log(`Pages Fetched: ${report.pages_fetched}`);
+    console.log(`Cache Hits: ${report.cache_hits}`);
+    console.log(`Valid Records: ${report.valid_records}`);
+    console.log(`Invalid Records: ${report.invalid_records}`);
+    console.log(`Failed Pages: ${report.failed_pages.length}`);
+    console.log("=" .repeat(60));
+    console.log("\n✓ Scraping complete!");
   } catch (error) {
-    console.error(`✗ Error: ${error.message}`);
+    console.error(`✗ Fatal error: ${error.message}`);
     process.exit(1);
   }
 }
 
 // Run the scraper
-runStage4();
+runStage5();
